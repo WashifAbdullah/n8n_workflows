@@ -1,0 +1,914 @@
+{
+  "name": "Invoice Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ed27eed8-dea1-4531-a2c1-26206d8fbe75",
+              "name": "fileName",
+              "value": "={{$binary.data.fileName}}",
+              "type": "string"
+            },
+            {
+              "id": "43f56c89-cda2-48cd-a8b0-6b99323c9554",
+              "name": "mimeType",
+              "value": "={{$binary.data.mimeType}}",
+              "type": "string"
+            },
+            {
+              "id": "035d3b9a-0f7e-4cb2-a9f0-229d85f4080d",
+              "name": "fileSize",
+              "value": "={{$binary.data.fileSize}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -816,
+        560
+      ],
+      "id": "4e48b1fd-d1c9-4807-add8-70e4d06ef4fd",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/upload/v1beta/files",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "=AIzaSyDQ_ybzrlD6r3y36OeahpcxTfxrdlIeZe4"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Goog-Upload-Protocol",
+              "value": "resumable"
+            },
+            {
+              "name": "X-Goog-Upload-Command",
+              "value": "start"
+            },
+            {
+              "name": "X-Goog-Upload-Header-Content-Length",
+              "value": "={{ $json.fileSize }}"
+            },
+            {
+              "name": "X-Goog-Upload-Header-Content-Type",
+              "value": "={{ $json.mimeType }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"file\":{\n    \"display_name\": \"{{ $json.fileName }}\"\n  }\n} ",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -640,
+        560
+      ],
+      "id": "706c4b6d-b00c-4234-a7c9-993f958e33ce",
+      "name": "Initiated Upload1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Initiated Upload1').item.json.headers['x-goog-upload-url'] }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Goog-Upload-Offset",
+              "value": "0"
+            },
+            {
+              "name": "X-Goog-Upload-Command",
+              "value": "upload, finalize"
+            },
+            {
+              "name": "Content-Type",
+              "value": "={{ $binary.data.mimeType }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -304,
+        592
+      ],
+      "id": "9c096c30-336d-4eed-86b6-cab6074f2e1f",
+      "name": "Upload1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -144,
+        592
+      ],
+      "id": "da2f7a01-8df3-4101-80e1-1c0d0e863c4b",
+      "name": "Wait1",
+      "webhookId": "f332191a-a4cf-4c4e-9290-38fcbcfb779a"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        -448,
+        592
+      ],
+      "id": "47193e43-aee6-4d75-a970-4e0c0091e518",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        880,
+        560
+      ],
+      "id": "9cd8b66d-dbd9-4531-a84e-78c479891a30",
+      "name": "Merge Open AI Outputs1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ff72858b-0e90-4194-81ed-46cfd8622023",
+              "name": "User Prompt",
+              "value": "Here is an invoice image to evaluate.",
+              "type": "string"
+            },
+            {
+              "id": "06d36053-49d7-4248-8581-15cbb51852e9",
+              "name": "System Prompt",
+              "value": "# Overview\\nYou are an AI agent responsible for extracting structured data from one or more supplier invoices within a single image.\\n\\n## Context\\n- The input is an image or OCR text that may contain one or multiple supplier invoices.\\n- For each invoice, extract header-level metadata and detailed line items.\\n- Return the data as a list of structured JSON objects—one object per invoice.\\n- Do not perform calculations. Only extract values that are visibly present on the invoice.\\n\\n## Instructions\\nFor each invoice, extract the following fields:\\n\\n### Header-level fields\\n- `supplier_name`: Name of the company issuing the invoice.\\n- `invoice_date`: The invoice date, converted to DD/MM/YYYY format.\\n  - Regardless of how the date appears (e.g. \\\"6 May 2025\\\", \\\"2025-05-06\\\"), always output as DD/MM/YYYY.\\n- `invoice_number`: The invoice reference number.\\n- `delivered_to`: If shown, the name or entity to whom the goods were delivered. Use null if not available.\\n\\n### Item-level fields (for each line item)\\n- `product_name`: Name or description of the product or service.\\n- `qty`: Quantity purchased.\\n- `unit_price`: Price per unit (before tax, if shown).\\n  - If a handwritten correction is present, use the handwritten value.\\n- `total_amount`:\\n  - Use the \\\"Amount\\\" column if present.\\n  - If not, use \\\"Total Incl. Tax\\\" or similar.\\n  - If neither, use null.\\n- `total_excl_tax`:\\n  - Only if a line-level column shows \\\"Total Excl. Tax\\\", \\\"Total Before GST\\\", or similar.\\n  - Do not use summary totals.\\n  - Use null if not available.\\n- `tax_amount`:\\n  - Only if a line-level column shows \\\"GST Amount\\\", \\\"Tax\\\", or \\\"Total Tax\\\".\\n  - Do not use summary totals.\\n  - Use null if not available.\\n\\n## Output Format\\nReturn a JSON array containing one object per invoice.\\nExample:\\n[\\n  {\\n    \\\"supplier_name\\\": \\\"\\\",\\n    \\\"delivered_to\\\": \\\"\\\",\\n    \\\"invoice_date\\\": \\\"DD/MM/YYYY\\\",\\n    \\\"invoice_number\\\": \\\"\\\",\\n    \\\"items\\\": [\\n      {\\n        \\\"product_name\\\": \\\"\\\",\\n        \\\"qty\\\": 0,\\n        \\\"unit_price\\\": 0.0,\\n        \\\"total_amount\\\": 0.0,\\n        \\\"total_excl_tax\\\": 0.0,\\n        \\\"tax_amount\\\": 0.0\\n      }\\n    ]\\n  }\\n]\\n\\n## SOP (Standard Operating Procedure)\\n1. Detect the number of separate invoices within the image or OCR input.\\n2. For each invoice, extract both the header and line-item details.\\n3. Normalize all dates to DD/MM/YYYY.\\n4. Use handwritten values in place of printed text if a correction is found.\\n5. Use null for any field that is not present on the invoice.\\n6. Return all results in a single JSON array.\\n\\n## Final Notes\\n- Always interpret dates as Day-Month-Year, regardless of the original format.\\n- Remove all currency symbols from numeric fields.\\n- Do not infer or calculate values; only extract what is shown.\\n- Never use invoice summary totals for line-item fields.\\n- Each JSON object in the output represents a single invoice.\\n---",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        160,
+        640
+      ],
+      "id": "4f6ff3c3-e9f3-499a-b69f-8994a5bc9f7f",
+      "name": "Prompt1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c06fa07c-7ea6-49f1-90a7-7a9375b22c7c",
+              "name": "contents",
+              "value": "={{ JSON.parse(\n     $json.candidates[0].content.parts[0].text\n       .replace(/```json|```/g, '')     // remove the code-block fences\n) }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        704
+      ],
+      "id": "2f62b88a-aff0-4a73-b965-8b0d7630b7ae",
+      "name": "Parse Gemini text1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ff72858b-0e90-4194-81ed-46cfd8622023",
+              "name": "User Prompt",
+              "value": "Here is an invoice image to evaluate.",
+              "type": "string"
+            },
+            {
+              "id": "06d36053-49d7-4248-8581-15cbb51852e9",
+              "name": "System Prompt",
+              "value": "# Overview\\nYou are an AI agent responsible for extracting summary financial information from one or more invoices present in a single image.\\n\\n## Context\\n- The input may be an image containing one or multiple invoices.\\n- Each invoice generally presents its financial summary in the lower right area.\\n- The agent must individually extract the following for each invoice:\\n  - Subtotal (if present)\\n  - GST (if present)\\n  - Total (required)\\n- If a value is missing on an invoice, return it as an empty string.\\n\\n## Instructions\\n1. Identify and separate each invoice contained in the image.\\n2. For every invoice, examine the lower right region to extract:\\n   - `subtotal`: Numeric value, or \\\"\\\" if absent.\\n   - `gst`: Numeric value, or \\\"\\\" if absent.\\n   - `total`: Numeric value (must be present).\\n3. Output the data as a JSON array, with one object per invoice.\\n4. Use OCR or other text recognition as needed.\\n5. Normalize all values by removing currency symbols and returning plain numeric strings.\\n\\n## Tools\\n- OCR (optical character recognition) or vision model\\n- Pattern matching (e.g., regex) for detecting financial fields\\n\\n## Examples\\n\\n- Input: Single invoice image showing  \\n  Sub Total: 105.00\\n  GST: 8.50\\n  Total: 113.50\\n  Output:\\n  [\\n    {\\n      \\\"subtotal\\\": \\\"106.00\\\",\\n      \\\"gst\\\": \\\"8.50\\\",\\n      \\\"total\\\": \\\"113.50\\\"\\n    }\\n  ]\\n\\n- Input: Image with two invoices, one with GST, one without\\n  Invoice 1:\\n  Total: SGD37.20\\n\\n  Invoice 2:\\n  Sub Total: 100.00\\n  GST: 9.00\\n  Total: 109.00\\n  Output:\\n  [\\n    {\\n      \\\"subtotal\\\": \\\"\\\",\\n      \\\"gst\\\": \\\"\\\",\\n      \\\"total\\\": \\\"37.20\\\"\\n    },\\n    {\\n      \\\"subtotal\\\": \\\"100.00\\\",\\n      \\\"gst\\\": \\\"9.00\\\",\\n      \\\"total\\\": \\\"109.00\\\"\\n    }\\n  ]\\n\\n## SOP (Standard Operating Procedure)\\n1. Load and scan the invoice image.\\n2. Detect and separate each invoice if multiple exist.\\n3. For each invoice:\\n   - Focus analysis on the lower right area.\\n   - Find and extract values labeled Subtotal, GST, and Total.\\n4. Clean extracted values by removing any currency symbols or text.\\n5. Structure the result as an object with `subtotal`, `gst`, and `total` keys.\\n6. Return a JSON array, with one object per invoice.\\n\\n## Final Notes\\n- If there are multiple totals, use nearest label and grouping logic to select the correct value.\\n- Always include the `total` field for every invoice, even if it is the only value extracted.\\n- Only return numeric values, no currency symbols or codes.\\n- Keep the order of keys (`subtotal`, `gst`, `total`) consistent in all output objects.\\n---",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        160,
+        352
+      ],
+      "id": "4aa54b3b-fe7b-450e-ad0e-7bf8a595979f",
+      "name": "Prompt13"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c06fa07c-7ea6-49f1-90a7-7a9375b22c7c",
+              "name": "contents",
+              "value": "={{ JSON.parse(\n     $json.candidates[0].content.parts[0].text\n       .replace(/```json|```/g, '')     // remove the code-block fences\n) }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        384
+      ],
+      "id": "079e2d11-5d69-4e35-b983-69e416100067",
+      "name": "Parse Gemini text9"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "AIzaSyDQ_ybzrlD6r3y36OeahpcxTfxrdlIeZe4"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [\n    {\n      \"role\": \"user\",\n      \"parts\": [\n        {\n          \"fileData\": {\n            \"mimeType\": \"{{ $('Wait1').item.json.file.mimeType }}\",\n            \"fileUri\": \"{{ $('Wait1').item.json.file.uri }}\"\n          }\n        },\n        {\n          \"text\": \"{{ $json['User Prompt'] }}\"\n        }\n      ]\n    }\n  ],\n  \"systemInstruction\": {\n    \"parts\": [\n      {\n        \"text\": \"{{ $json['System Prompt'] }}\"\n      }\n    ]\n  },\n  \"generationConfig\": {\n    \"responseMimeType\": \"text/plain\"\n  }\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        368,
+        352
+      ],
+      "id": "40772422-6e4b-4d9a-99b1-ac458edcbcf6",
+      "name": "Analyze (Gemini 2.0 Flash)1",
+      "retryOnFail": true,
+      "waitBetweenTries": 3000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "errorMessage": "There was an error in the gemini node"
+      },
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        704,
+        528
+      ],
+      "id": "8972d7c2-7254-4fae-94fd-83579792efb0",
+      "name": "Stop and Error1"
+    },
+    {
+      "parameters": {
+        "errorMessage": "There was an error in the gemini node"
+      },
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        688,
+        912
+      ],
+      "id": "d69e9a4e-4027-4ab5-a0b7-e3d162b0ace5",
+      "name": "Stop and Error12"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1328,
+        560
+      ],
+      "id": "055a4c79-35da-40ac-a03d-3af946fde04d",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1328,
+        528
+      ],
+      "id": "f2c79c9a-86dd-4db2-a3ae-535e77ab2321",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "contents",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1152,
+        592
+      ],
+      "id": "e9c2b622-01b4-4f87-9cf8-fa34db6dffff",
+      "name": "Split Out4"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1a-8nYlzHwO5ZXiUuqVeuozOxFBzEPhvkqf1RSw1yUeo",
+          "mode": "list",
+          "cachedResultName": "Invoice Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1a-8nYlzHwO5ZXiUuqVeuozOxFBzEPhvkqf1RSw1yUeo/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Invoice",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1a-8nYlzHwO5ZXiUuqVeuozOxFBzEPhvkqf1RSw1yUeo/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Supplier Name": "={{ $('Merge Open AI Outputs1').item.json.contents[0].supplier_name }}",
+            "Invoice Date": "={{ $('Merge Open AI Outputs1').item.json.contents[0].invoice_date }}",
+            "Product": "={{ $('Split Out').item.json.product_name }}",
+            "Qty": "={{ $('Split Out').item.json.qty }}",
+            "Unit Price": "={{ $('Split Out').item.json.unit_price }}",
+            "Invoice Number": "={{ $('Merge Open AI Outputs1').item.json.contents[0].invoice_number }}",
+            "Invoice Link": "=https://drive.google.com/open?id={{ $('Download file').item.json.id }}",
+            "Total": "={{ $('Split Out').item.json.total_amount }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Supplier Name",
+              "displayName": "Supplier Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Invoice Date",
+              "displayName": "Invoice Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Product",
+              "displayName": "Product",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Qty",
+              "displayName": "Qty",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Unit Price",
+              "displayName": "Unit Price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Total",
+              "displayName": "Total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Invoice Number",
+              "displayName": "Invoice Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Invoice Link",
+              "displayName": "Invoice Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1488,
+        592
+      ],
+      "id": "70ef93c2-3ff8-4893-b797-2478d86d3c46",
+      "name": "Log Invoice Line Items1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "vwydBuqOfs2aYTqj",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1a-8nYlzHwO5ZXiUuqVeuozOxFBzEPhvkqf1RSw1yUeo",
+          "mode": "list",
+          "cachedResultName": "Invoice Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1a-8nYlzHwO5ZXiUuqVeuozOxFBzEPhvkqf1RSw1yUeo/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 271899928,
+          "mode": "list",
+          "cachedResultName": "Grand Total",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1a-8nYlzHwO5ZXiUuqVeuozOxFBzEPhvkqf1RSw1yUeo/edit#gid=271899928"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Supplier Name": "={{ $('Merge Open AI Outputs1').item.json.contents[0].supplier_name }}",
+            "Invoice Date": "={{ $('Merge Open AI Outputs1').item.json.contents[0].invoice_date }}",
+            "Grand Total": "={{ $('Merge Open AI Outputs1').item.json.contents[0].total }}",
+            "Invoice Number": "={{ $('Merge Open AI Outputs1').item.json.contents[0].invoice_number }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Supplier Name",
+              "displayName": "Supplier Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Invoice Date",
+              "displayName": "Invoice Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Grand Total",
+              "displayName": "Grand Total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Invoice Number",
+              "displayName": "Invoice Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Invoice link",
+              "displayName": "Invoice link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1280,
+        784
+      ],
+      "id": "82b0697e-4be3-4386-8d69-7ba13d6b7bd8",
+      "name": "Invoice Grand Total1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "vwydBuqOfs2aYTqj",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "AIzaSyDQ_ybzrlD6r3y36OeahpcxTfxrdlIeZe4"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [\n    {\n      \"role\": \"user\",\n      \"parts\": [\n        {\n          \"fileData\": {\n            \"mimeType\": \"{{ $('Wait1').item.json.file.mimeType }}\",\n            \"fileUri\": \"{{ $('Wait1').item.json.file.uri }}\"\n          }\n        },\n        {\n          \"text\": \"{{ $json['User Prompt'] }}\"\n        }\n      ]\n    }\n  ],\n  \"systemInstruction\": {\n    \"parts\": [\n      {\n        \"text\": \"{{ $json['System Prompt'] }}\"\n      }\n    ]\n  },\n  \"generationConfig\": {\n    \"responseMimeType\": \"text/plain\"\n  }\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        304,
+        608
+      ],
+      "id": "4b8630cb-931e-4805-a075-5e65c57a384b",
+      "name": "Analyze (Gemini 2.5 flash)1",
+      "retryOnFail": true,
+      "waitBetweenTries": 3000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "filter": {
+          "folderId": {
+            "__rl": true,
+            "value": "1JlFJSOpBr2t8gbCOQYKzc1zsCOWh19A0FMP5agVgkbKMPDPMrtKaHfnmkhhhEbNRQ86li3UZ",
+            "mode": "list",
+            "cachedResultName": "Invoice (File responses)",
+            "cachedResultUrl": "https://drive.google.com/drive/folders/1JlFJSOpBr2t8gbCOQYKzc1zsCOWh19A0FMP5agVgkbKMPDPMrtKaHfnmkhhhEbNRQ86li3UZ"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1152,
+        528
+      ],
+      "id": "f4330b39-cce6-427d-982c-043a4521e63c",
+      "name": "Search files and folders",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "OEc4OerZZuJ1WWfg",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -976,
+        560
+      ],
+      "id": "70c09103-dc3c-45d6-b42c-47a5b7aeb88a",
+      "name": "Download file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "OEc4OerZZuJ1WWfg",
+          "name": "Google Drive account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Initiated Upload1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initiated Upload1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload1": {
+      "main": [
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "Prompt13",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prompt1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Upload1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Open AI Outputs1": {
+      "main": [
+        [
+          {
+            "node": "Split Out4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prompt1": {
+      "main": [
+        [
+          {
+            "node": "Analyze (Gemini 2.5 flash)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Gemini text1": {
+      "main": [
+        [
+          {
+            "node": "Merge Open AI Outputs1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Prompt13": {
+      "main": [
+        [
+          {
+            "node": "Analyze (Gemini 2.0 Flash)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Gemini text9": {
+      "main": [
+        [
+          {
+            "node": "Merge Open AI Outputs1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze (Gemini 2.0 Flash)1": {
+      "main": [
+        [
+          {
+            "node": "Parse Gemini text9",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop and Error1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Log Invoice Line Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Search files and folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out4": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Invoice Grand Total1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze (Gemini 2.5 flash)1": {
+      "main": [
+        [
+          {
+            "node": "Parse Gemini text1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop and Error12",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search files and folders": {
+      "main": [
+        [
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "a3a5f154-77ee-4522-b1e1-6c4487256887",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "25002479db7f3aa482da636a73aa31709f2b72f20557711c749fc87f682b2fdb"
+  },
+  "id": "5R1pWizt5kRFggp9",
+  "tags": []
+}
